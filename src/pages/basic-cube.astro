@@ -1,0 +1,67 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Welcome to Three.js.">
+  <main>
+    <h1>Basic</h1>
+    <div id="root"></div>
+  </main>
+</Layout>
+
+<style>
+  main {
+    margin: auto;
+    padding: 1.5rem;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  h1 {
+    font-size: 3rem;
+    font-weight: 800;
+    margin: 0;
+  }
+
+  #root {
+    flex: 1;
+  }
+</style>
+
+<script>
+  import * as THREE from 'three';
+
+  const rootEl = document.getElementById('root')!;
+
+  const renderer = new THREE.WebGLRenderer();
+  renderer.setSize(rootEl.clientWidth, rootEl.clientHeight);
+  rootEl.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(
+    75,
+    rootEl.clientWidth / rootEl.clientHeight,
+    0.1,
+    1000,
+  );
+  camera.position.z = 5;
+
+  const geometry = new THREE.BoxGeometry(1, 1, 1);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x00ff00,
+    wireframe: true,
+  });
+  const cube = new THREE.Mesh(geometry, material);
+  scene.add(cube);
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    cube.rotation.x += 0.01;
+    cube.rotation.y += 0.01;
+
+    renderer.render(scene, camera);
+  }
+  animate();
+</script>
