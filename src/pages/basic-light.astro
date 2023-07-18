@@ -1,0 +1,235 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Basic Light">
+  <main>
+    <h1>Basic Light</h1>
+    <div id="container">
+      <canvas></canvas>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  main {
+    margin: auto;
+    padding: 1.5rem;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  h1 {
+    font-size: 3rem;
+    font-weight: 800;
+    margin: 0;
+  }
+
+  #container {
+    flex: 1;
+    position: relative;
+  }
+
+  canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+</style>
+
+<script>
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+  import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min';
+
+  const container = document.getElementById('container')!;
+
+  const appCongig = {
+    width: container.clientWidth,
+    height: container.clientHeight,
+    autoRotation: true,
+    rotationSpeed: 0.005,
+  };
+
+  const renderer = createRenderer();
+  const scene = createScene();
+  const camera = createCamera();
+  const controls = new OrbitControls(camera, renderer.domElement);
+  const gui = new GUI();
+
+  gui.add(appCongig, 'autoRotation').name('Auto rotation');
+  gui.add(appCongig, 'rotationSpeed', 0, 0.05, 0.001);
+
+  init();
+
+  function init() {
+    createAmbientLight();
+    createDirectLight();
+    createPlane();
+    const objects = [createCube(), createTorus()];
+
+    animate();
+
+    window.addEventListener('resize', () => {
+      appCongig.width = container.clientWidth;
+      appCongig.height = container.clientHeight;
+
+      camera.aspect = appCongig.width / appCongig.height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(appCongig.width, appCongig.height);
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (appCongig.autoRotation) {
+        objects.forEach((object) => {
+          object.rotateX(appCongig.rotationSpeed);
+          object.rotateY(appCongig.rotationSpeed);
+        });
+      }
+
+      controls.update();
+
+      renderer.render(scene, camera);
+    }
+  }
+
+  function createRenderer() {
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      canvas: container.querySelector('canvas')!,
+    });
+    renderer.setSize(appCongig.width, appCongig.height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    return renderer;
+  }
+
+  function createScene() {
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x262626);
+
+    return scene;
+  }
+
+  function createCamera() {
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      container.clientWidth / container.clientHeight,
+      0.1,
+      1000,
+    );
+    camera.position.z = 10;
+
+    return camera;
+  }
+
+  function createAmbientLight() {
+    const ambientLight = new THREE.AmbientLight(THREE.Color.NAMES.white, 1);
+    ambientLight.intensity = 0.5;
+    scene.add(ambientLight);
+
+    const ambientLightFolder = gui.addFolder('Ambient Light');
+    ambientLightFolder.addColor(ambientLight, 'color');
+    ambientLightFolder.add(ambientLight, 'intensity', 0, 1, 0.01);
+
+    return ambientLight;
+  }
+
+  function createDirectLight() {
+    const directionalLight = new THREE.DirectionalLight(
+      THREE.Color.NAMES.yellow,
+    );
+    directionalLight.position.set(2.5, 2, 2);
+    directionalLight.intensity = 0.5;
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 512;
+    directionalLight.shadow.mapSize.height = 512;
+    directionalLight.shadow.camera.near = 0.5;
+    directionalLight.shadow.camera.far = 100;
+    scene.add(directionalLight);
+
+    const helper = new THREE.DirectionalLightHelper(directionalLight);
+    scene.add(helper);
+
+    const directionalLightFolder = gui.addFolder('Directional Light');
+    directionalLightFolder.addColor(directionalLight, 'color').onChange(() => {
+      helper.update();
+    });
+    directionalLightFolder.add(directionalLight, 'intensity', 0, 1, 0.01);
+
+    return directionalLight;
+  }
+
+  function createPlane() {
+    const geometry = new THREE.PlaneGeometry(10, 10);
+    const material = new THREE.MeshPhongMaterial({
+      color: THREE.Color.NAMES.aliceblue,
+    });
+    const plane = new THREE.Mesh(geometry, material);
+    plane.rotateX(-Math.PI / 2);
+    plane.position.y = -3;
+    plane.receiveShadow = true;
+    scene.add(plane);
+
+    return plane;
+  }
+
+  function createCube() {
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshStandardMaterial({
+      color: THREE.Color.NAMES.blue,
+    });
+    const cube = new THREE.Mesh(geometry, material);
+    cube.castShadow = true;
+    cube.receiveShadow = true;
+    cube.position.set(-1, -0.5, -1);
+    scene.add(cube);
+
+    const rootFolder = gui.addFolder('Cube').close();
+    const materialFolder = rootFolder.addFolder('Material');
+    materialFolder.add(material, 'wireframe');
+    materialFolder.addColor({ color: material.color }, 'color');
+    const positionFolder = rootFolder.addFolder('Position');
+    positionFolder.add(cube.position, 'x', -5, 5, 0.1);
+    positionFolder.add(cube.position, 'y', -5, 5, 0.1);
+    positionFolder.add(cube.position, 'z', -5, 5, 0.1);
+    const scaleFolder = rootFolder.addFolder('Scale');
+    scaleFolder.add(cube.scale, 'x', 0, 5, 0.1).name('width');
+    scaleFolder.add(cube.scale, 'y', 0, 5, 0.1).name('height');
+    scaleFolder.add(cube.scale, 'z', 0, 5, 0.1).name('depth');
+
+    return cube;
+  }
+
+  function createTorus() {
+    const geometry = new THREE.TorusGeometry(1, 0.5, 10, 12, 2 * Math.PI);
+    const material = new THREE.MeshStandardMaterial({
+      color: THREE.Color.NAMES.purple,
+    });
+    const torus = new THREE.Mesh(geometry, material);
+    torus.castShadow = true;
+    torus.receiveShadow = true;
+    torus.position.set(1, 0, 1);
+    scene.add(torus);
+
+    const rootFolder = gui.addFolder('Torus').close();
+    const materialFolder = rootFolder.addFolder('Material');
+    materialFolder.add(material, 'wireframe');
+    materialFolder.addColor({ color: material.color }, 'color');
+    const positionFolder = rootFolder.addFolder('Position');
+    positionFolder.add(torus.position, 'x', -5, 5, 0.1);
+    positionFolder.add(torus.position, 'y', -5, 5, 0.1);
+    positionFolder.add(torus.position, 'z', -5, 5, 0.1);
+    const scaleFolder = rootFolder.addFolder('Scale');
+    scaleFolder.add(torus.scale, 'x', 0, 5, 0.1).name('width');
+    scaleFolder.add(torus.scale, 'y', 0, 5, 0.1).name('height');
+    scaleFolder.add(torus.scale, 'z', 0, 5, 0.1).name('depth');
+
+    return torus;
+  }
+</script>
