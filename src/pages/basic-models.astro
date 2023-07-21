@@ -21,18 +21,18 @@ import Canvas from '../layouts/Canvas.astro';
     height: container.clientHeight,
   };
 
+  const gui = new GUI();
   const renderer = createRenderer();
   const scene = createScene();
   const camera = createCamera();
   const controls = new OrbitControls(camera, renderer.domElement);
-  const gui = new GUI();
   const clock = new THREE.Clock();
 
   init();
 
   async function init() {
-    createAmbientLight();
     createPlane();
+    createAmbientLight();
     const updatables: Updatable[] = [await createCarModel()];
 
     await Promise.all([
@@ -79,7 +79,10 @@ import Canvas from '../layouts/Canvas.astro';
 
   function createScene() {
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x262626);
+    scene.background = new THREE.Color(0x61d0ff);
+
+    const sceneFolder = gui.addFolder('Scene');
+    sceneFolder.addColor(scene, 'background');
 
     return scene;
   }
@@ -113,12 +116,15 @@ import Canvas from '../layouts/Canvas.astro';
   function createPlane() {
     const geometry = new THREE.PlaneGeometry(100, 100);
     const material = new THREE.MeshPhongMaterial({
-      color: 0x8bc34a,
+      color: 0x93ff8f,
     });
     const plane = new THREE.Mesh(geometry, material);
     plane.rotateX(-Math.PI / 2);
     plane.receiveShadow = true;
     scene.add(plane);
+
+    const planeFolder = gui.addFolder('Plane');
+    planeFolder.addColor(material, 'color');
 
     return plane;
   }
