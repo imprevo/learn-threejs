@@ -1,42 +1,8 @@
 ---
-import Layout from '../layouts/Layout.astro';
+import Canvas from '../layouts/Canvas.astro';
 ---
 
-<Layout title="Basic Light">
-  <main>
-    <h1>Basic Light</h1>
-    <div id="container">
-      <canvas></canvas>
-    </div>
-  </main>
-</Layout>
-
-<style>
-  main {
-    margin: auto;
-    padding: 1.5rem;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-
-  h1 {
-    font-size: 3rem;
-    font-weight: 800;
-    margin: 0;
-  }
-
-  #container {
-    flex: 1;
-    position: relative;
-  }
-
-  canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-  }
-</style>
+<Canvas title="Basic Light" />
 
 <script>
   import * as THREE from 'three';
