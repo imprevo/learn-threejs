@@ -46,8 +46,6 @@ import Canvas from '../layouts/Canvas.astro';
       loadSekiroModel(),
     ]);
 
-    animate();
-
     window.addEventListener('resize', () => {
       appCongig.width = container.clientWidth;
       appCongig.height = container.clientHeight;
@@ -57,15 +55,13 @@ import Canvas from '../layouts/Canvas.astro';
       renderer.setSize(appCongig.width, appCongig.height);
     });
 
-    function animate() {
-      requestAnimationFrame(animate);
-
+    renderer.setAnimationLoop(() => {
       const delta = clock.getDelta();
       updatables.forEach((obj) => obj.tick(delta));
 
       controls.update();
       renderer.render(scene, camera);
-    }
+    });
   }
 
   function createRenderer() {
