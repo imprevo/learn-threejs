@@ -6,6 +6,11 @@ import Canvas from '../layouts/Canvas.astro';
 
 <script>
   import * as THREE from 'three';
+  import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+  import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+  import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass';
+  import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader';
+  import { RGBShiftShader } from 'three/examples/jsm/shaders/RGBShiftShader';
 
   const container = document.getElementById('container')!;
 
@@ -16,7 +21,7 @@ import Canvas from '../layouts/Canvas.astro';
     cameraSpeed: 50,
   };
   const colors = {
-    sun: new THREE.Color('orange'),
+    sun: new THREE.Color('hotpink'),
   };
 
   const clock = new THREE.Clock();
@@ -31,6 +36,7 @@ import Canvas from '../layouts/Canvas.astro';
   const renderer = createRenderer();
   const scene = createScene();
   const camera = createCamera();
+  const effectComposer = createEffectComposer();
   const grids = createGrids();
   const sun = createSun();
   const sunZPosition = sun.position.z;
@@ -44,6 +50,9 @@ import Canvas from '../layouts/Canvas.astro';
     camera.aspect = appCongig.width / appCongig.height;
     camera.updateProjectionMatrix();
     renderer.setSize(appCongig.width, appCongig.height);
+
+    effectComposer.setSize(appCongig.width, appCongig.height);
+    effectComposer.setPixelRatio(getPixelRatio());
   });
 
   renderer.setAnimationLoop(() => {
@@ -52,7 +61,7 @@ import Canvas from '../layouts/Canvas.astro';
     moveCamera(delta);
     shiftGrids();
 
-    renderer.render(scene, camera);
+    effectComposer.render();
   });
 
   function createRenderer() {
@@ -61,7 +70,7 @@ import Canvas from '../layouts/Canvas.astro';
       canvas: container.querySelector('canvas')!,
     });
     renderer.setSize(appCongig.width, appCongig.height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(getPixelRatio());
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -87,6 +96,24 @@ import Canvas from '../layouts/Canvas.astro';
     camera.rotation.y = Math.PI;
 
     return camera;
+  }
+
+  function createEffectComposer() {
+    const composer = new EffectComposer(renderer);
+    composer.setSize(appCongig.width, appCongig.height);
+    composer.setPixelRatio(getPixelRatio());
+
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    const rgbShiftPass = new ShaderPass(RGBShiftShader);
+    rgbShiftPass.uniforms['amount'].value = 0.0025;
+    composer.addPass(rgbShiftPass);
+
+    const gammaCorrectionPass = new ShaderPass(GammaCorrectionShader);
+    composer.addPass(gammaCorrectionPass);
+
+    return composer;
   }
 
   function createAmbientLight() {
@@ -151,5 +178,9 @@ import Canvas from '../layouts/Canvas.astro';
   function moveCamera(delta: number) {
     camera.position.z += appCongig.cameraSpeed * delta;
     sun.position.z = camera.position.z + sunZPosition;
+  }
+
+  function getPixelRatio() {
+    return Math.min(window.devicePixelRatio, 2);
   }
 </script>
