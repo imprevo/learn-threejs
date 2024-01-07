@@ -13,9 +13,13 @@ import Canvas from '../layouts/Canvas.astro';
     width: container.clientWidth,
     height: container.clientHeight,
     gridSize: 200,
-    cameraSpeed: -50,
+    cameraSpeed: 50,
+  };
+  const colors = {
+    sun: new THREE.Color('orange'),
   };
 
+  const clock = new THREE.Clock();
   const textureLoader = new THREE.TextureLoader();
   const gridTexture = await textureLoader.loadAsync('/textures/grid.png');
   const terrainTexture = await textureLoader.loadAsync(
@@ -27,40 +31,29 @@ import Canvas from '../layouts/Canvas.astro';
   const renderer = createRenderer();
   const scene = createScene();
   const camera = createCamera();
-  const clock = new THREE.Clock();
+  const grids = createGrids();
+  const sun = createSun();
+  const sunZPosition = sun.position.z;
 
-  init();
+  createAmbientLight();
 
-  async function init() {
-    createAmbientLight();
-    const grids = [createGrid(0), createGrid(-appCongig.gridSize)];
+  window.addEventListener('resize', () => {
+    appCongig.width = container.clientWidth;
+    appCongig.height = container.clientHeight;
 
-    window.addEventListener('resize', () => {
-      appCongig.width = container.clientWidth;
-      appCongig.height = container.clientHeight;
+    camera.aspect = appCongig.width / appCongig.height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(appCongig.width, appCongig.height);
+  });
 
-      camera.aspect = appCongig.width / appCongig.height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(appCongig.width, appCongig.height);
-    });
+  renderer.setAnimationLoop(() => {
+    const delta = clock.getDelta();
 
-    renderer.setAnimationLoop(() => {
-      const delta = clock.getDelta();
-      const first = grids[0];
+    moveCamera(delta);
+    shiftGrids();
 
-      camera.position.z += appCongig.cameraSpeed * delta;
-
-      const isNearestGridOutOfView =
-        camera.position.z + appCongig.gridSize / 2 < first.position.z;
-      if (isNearestGridOutOfView) {
-        const last = grids[grids.length - 1];
-        first.position.z = last.position.z - appCongig.gridSize;
-        grids.push(grids.shift()!);
-      }
-
-      renderer.render(scene, camera);
-    });
-  }
+    renderer.render(scene, camera);
+  });
 
   function createRenderer() {
     const renderer = new THREE.WebGLRenderer({
@@ -77,8 +70,8 @@ import Canvas from '../layouts/Canvas.astro';
 
   function createScene() {
     const scene = new THREE.Scene();
-    starfieldTexture;
     scene.background = starfieldTexture;
+    scene.fog = new THREE.Fog(colors.sun, 200, 400);
     return scene;
   }
 
@@ -91,6 +84,7 @@ import Canvas from '../layouts/Canvas.astro';
     );
     camera.position.y = 10;
     camera.position.z = 100;
+    camera.rotation.y = Math.PI;
 
     return camera;
   }
@@ -102,11 +96,16 @@ import Canvas from '../layouts/Canvas.astro';
   }
 
   function createGrid(z: number) {
-    const geometry = new THREE.PlaneGeometry(100, appCongig.gridSize, 24, 24);
+    const geometry = new THREE.PlaneGeometry(
+      appCongig.gridSize,
+      appCongig.gridSize,
+      24,
+      24,
+    );
     const material = new THREE.MeshStandardMaterial({
       map: gridTexture,
       displacementMap: terrainTexture,
-      displacementScale: 40,
+      displacementScale: 50,
     });
     const grid = new THREE.Mesh(geometry, material);
     grid.rotation.x = -Math.PI * 0.5;
@@ -115,5 +114,42 @@ import Canvas from '../layouts/Canvas.astro';
     scene.add(grid);
 
     return grid;
+  }
+
+  function createGrids() {
+    const grids: THREE.Mesh[] = [];
+    for (let index = 0; index < 3; index++) {
+      const grid = createGrid(appCongig.gridSize * index);
+      grids.push(grid);
+    }
+    return grids;
+  }
+
+  function createSun() {
+    const geometry = new THREE.CircleGeometry(100, 64, 0, Math.PI);
+    const material = new THREE.MeshBasicMaterial({ color: colors.sun });
+    const circle = new THREE.Mesh(geometry, material);
+    circle.position.z = appCongig.gridSize * 2;
+    circle.rotation.y = Math.PI;
+
+    scene.add(circle);
+
+    return circle;
+  }
+
+  function shiftGrids() {
+    const first = grids[0];
+    const isNearestGridOutOfView =
+      camera.position.z > first.position.z + appCongig.gridSize / 2;
+    if (isNearestGridOutOfView) {
+      const last = grids[grids.length - 1];
+      first.position.z = last.position.z + appCongig.gridSize;
+      grids.push(grids.shift()!);
+    }
+  }
+
+  function moveCamera(delta: number) {
+    camera.position.z += appCongig.cameraSpeed * delta;
+    sun.position.z = camera.position.z + sunZPosition;
   }
 </script>
