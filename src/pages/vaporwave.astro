@@ -138,6 +138,17 @@ import Canvas from '../layouts/Canvas.astro';
     grid.rotation.x = -Math.PI * 0.5;
     grid.position.z = z;
 
+    const spotLight = new THREE.SpotLight(
+      'cornflowerblue',
+      5,
+      100,
+      Math.PI * 0.5,
+    );
+    spotLight.position.set(0, 10, 50);
+    spotLight.target.position.set(0, 0, 0);
+    grid.add(spotLight);
+    grid.add(spotLight.target);
+
     scene.add(grid);
 
     return grid;
