@@ -17,11 +17,13 @@ import Canvas from '../layouts/Canvas.astro';
   };
 
   const textureLoader = new THREE.TextureLoader();
-  const [gridTexture, terrainTexture, starfieldTexture] = await Promise.all([
-    textureLoader.loadAsync('/textures/grid.png'),
-    textureLoader.loadAsync('/textures/displacement-map.png'),
-    textureLoader.loadAsync('/textures/starfield.png'),
-  ]);
+  const gridTexture = await textureLoader.loadAsync('/textures/grid.png');
+  const terrainTexture = await textureLoader.loadAsync(
+    '/textures/displacement-map.png',
+  );
+  const starfieldTexture = await textureLoader.loadAsync(
+    '/textures/starfield.png',
+  );
   const renderer = createRenderer();
   const scene = createScene();
   const camera = createCamera();
