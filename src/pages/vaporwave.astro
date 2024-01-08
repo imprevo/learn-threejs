@@ -6,11 +6,13 @@ import Canvas from '../layouts/Canvas.astro';
 
 <script>
   import * as THREE from 'three';
+  import * as TWEEN from '@tweenjs/tween.js';
   import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
   import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
   import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass';
   import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader';
   import { RGBShiftShader } from 'three/examples/jsm/shaders/RGBShiftShader';
+  import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
   const container = document.getElementById('container')!;
 
@@ -26,6 +28,7 @@ import Canvas from '../layouts/Canvas.astro';
 
   const clock = new THREE.Clock();
   const textureLoader = new THREE.TextureLoader();
+  const modelLoader = new GLTFLoader();
   const gridTexture = await textureLoader.loadAsync('/textures/grid.png');
   const terrainTexture = await textureLoader.loadAsync(
     '/textures/displacement-map.png',
@@ -33,12 +36,18 @@ import Canvas from '../layouts/Canvas.astro';
   const starfieldTexture = await textureLoader.loadAsync(
     '/textures/starfield.png',
   );
+  const carModel = await modelLoader.loadAsync(
+    '/models/low-poly_lamborghini/scene.gltf',
+  );
+
   const renderer = createRenderer();
   const scene = createScene();
   const camera = createCamera();
   const effectComposer = createEffectComposer();
   const grids = createGrids();
   const sun = createSun();
+  const car = createCarModel();
+  const carTween = createCarAnimation();
   const sunZPosition = sun.position.z;
 
   createAmbientLight();
@@ -175,6 +184,36 @@ import Canvas from '../layouts/Canvas.astro';
     return circle;
   }
 
+  function createCarModel() {
+    const car = carModel.scene;
+    car.scale.setScalar(2);
+    car.position.set(2, 5, 120);
+    car.rotation.set(0, -Math.PI / 2, 0);
+    scene.add(car);
+    return car;
+  }
+
+  function createCarAnimation() {
+    const tween = new TWEEN.Group();
+
+    new TWEEN.Tween(car.position, tween)
+      .to({ y: car.position.y - 0.2 }, 1000)
+      .easing(TWEEN.Easing.Quadratic.InOut)
+      .repeat(Infinity)
+      .yoyo(true)
+      .start();
+
+    new TWEEN.Tween(car.position, tween)
+      .to({ x: car.position.x - 4 }, 5000)
+      .delay(5000)
+      .easing(TWEEN.Easing.Quadratic.InOut)
+      .repeat(Infinity)
+      .yoyo(true)
+      .start();
+
+    return tween;
+  }
+
   function shiftGrids() {
     const first = grids[0];
     const isNearestGridOutOfView =
@@ -188,7 +227,10 @@ import Canvas from '../layouts/Canvas.astro';
 
   function moveCamera(delta: number) {
     camera.position.z += appCongig.cameraSpeed * delta;
+    car.position.z += appCongig.cameraSpeed * delta;
     sun.position.z = camera.position.z + sunZPosition;
+
+    carTween.update();
   }
 
   function getPixelRatio() {
