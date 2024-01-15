@@ -1,0 +1,160 @@
+---
+import Canvas from '../layouts/Canvas.astro';
+---
+
+<Canvas title="Matrix rain" />
+
+<script>
+  import * as THREE from 'three';
+  import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+  import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+  import { FontLoader } from 'three/examples/jsm/loaders/FontLoader';
+
+  const container = document.getElementById('container')!;
+
+  const appCongig = {
+    width: container.clientWidth,
+    height: container.clientHeight,
+    glyphSize: 2,
+  };
+
+  const clock = new THREE.Clock();
+  const fontLoader = new FontLoader();
+
+  const matrixFont = await fontLoader.loadAsync(
+    '/fonts/Matrix-Code.facetype.json',
+  );
+  const glyphs = extractGlyphs();
+  const renderer = createRenderer();
+  const scene = createScene();
+  const camera = createCamera();
+  const effectComposer = createEffectComposer();
+
+  createRain();
+
+  window.addEventListener('resize', () => {
+    appCongig.width = container.clientWidth;
+    appCongig.height = container.clientHeight;
+
+    camera.aspect = appCongig.width / appCongig.height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(appCongig.width, appCongig.height);
+
+    effectComposer.setSize(appCongig.width, appCongig.height);
+    effectComposer.setPixelRatio(getPixelRatio());
+  });
+
+  renderer.setAnimationLoop(() => {
+    const delta = clock.getDelta();
+
+    effectComposer.render();
+  });
+
+  function createRenderer() {
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      canvas: container.querySelector('canvas')!,
+    });
+    renderer.setSize(appCongig.width, appCongig.height);
+    renderer.setPixelRatio(getPixelRatio());
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    return renderer;
+  }
+
+  function createScene() {
+    const scene = new THREE.Scene();
+    return scene;
+  }
+
+  function createCamera() {
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      container.clientWidth / container.clientHeight,
+      0.1,
+      1000,
+    );
+    camera.position.z = 30;
+    return camera;
+  }
+
+  function createEffectComposer() {
+    const composer = new EffectComposer(renderer);
+    composer.setSize(appCongig.width, appCongig.height);
+    composer.setPixelRatio(getPixelRatio());
+
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    return composer;
+  }
+
+  function createRain() {
+    const count = 20;
+    for (let index = 0; index < count; index++) {
+      const line = createLine();
+      line.position.x = (index - count / 2) * appCongig.glyphSize;
+      line.position.y = 10;
+      scene.add(line);
+    }
+  }
+
+  function createText(text: string, color: number, opacity: number) {
+    const shapes = matrixFont.generateShapes(text, 1);
+    const geometry = new THREE.ShapeGeometry(shapes);
+    geometry.computeBoundingBox();
+    const material = new THREE.LineBasicMaterial({
+      color,
+      opacity,
+      transparent: opacity !== 1,
+    });
+    const textMesh = new THREE.Mesh(geometry, material);
+
+    return textMesh;
+  }
+
+  function createLine() {
+    const line = new THREE.Group();
+    const string = getRandomGlyphs(10);
+
+    for (let index = 0; index < string.length; index++) {
+      const char = string[index];
+      const color = getTextColor(index, string.length);
+      const opacity = getTextOpacity(index, string.length);
+      const text = createText(char, color, opacity);
+      text.position.y = -appCongig.glyphSize * index;
+
+      line.add(text);
+    }
+
+    return line;
+  }
+
+  function getTextColor(index: number, total: number) {
+    if (index === total - 1) {
+      return 0xf0ff00;
+    }
+    return 0x00ff00;
+  }
+
+  function getTextOpacity(index: number, total: number) {
+    return Math.min(1, index / (total / 2));
+  }
+
+  function extractGlyphs() {
+    const data = matrixFont.data as unknown as Record<string, string>;
+    const glyphs = Object.keys(data.glyphs);
+    glyphs.splice(9, 4); // remove broken/empty symbols
+    return glyphs;
+  }
+
+  function getRandomGlyphs(length: number) {
+    const start = THREE.MathUtils.randInt(0, glyphs.length - length);
+    return glyphs.slice(start, start + length);
+  }
+
+  function getPixelRatio() {
+    return Math.min(window.devicePixelRatio, 2);
+  }
+</script>
