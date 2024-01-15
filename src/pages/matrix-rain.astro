@@ -16,6 +16,7 @@ import Canvas from '../layouts/Canvas.astro';
     width: container.clientWidth,
     height: container.clientHeight,
     glyphSize: 2,
+    rainSpeed: 300,
   };
 
   const clock = new THREE.Clock();
@@ -29,6 +30,85 @@ import Canvas from '../layouts/Canvas.astro';
   const scene = createScene();
   const camera = createCamera();
   const effectComposer = createEffectComposer();
+
+  class Glyph extends THREE.Group {
+    private material = new THREE.LineBasicMaterial({
+      transparent: true,
+    });
+
+    private mesh: THREE.Mesh;
+
+    constructor() {
+      super();
+
+      this.mesh = new THREE.Mesh(this.createShape(), this.material);
+
+      this.add(this.mesh);
+    }
+
+    public updateGlyph() {
+      this.mesh.geometry.dispose();
+      this.mesh.geometry = this.createShape();
+    }
+
+    public updateColor(index: number, total: number) {
+      this.material.color = this.getTextColor(index, total);
+      this.material.opacity = this.getTextOpacity(index, total);
+    }
+
+    private getRandomGlyph() {
+      const index = THREE.MathUtils.randInt(0, glyphs.length - 1);
+      return glyphs[index];
+    }
+
+    private createShape() {
+      const text = this.getRandomGlyph();
+      const shapes = matrixFont.generateShapes(text, 1);
+      return new THREE.ShapeGeometry(shapes);
+    }
+
+    private getTextColor(index: number, total: number) {
+      if (index === total - 1) {
+        return new THREE.Color(0xf0ff00);
+      }
+      return new THREE.Color(0x00ff00);
+    }
+
+    private getTextOpacity(index: number, total: number) {
+      return Math.min(1, index / (total / 2));
+    }
+  }
+
+  class GlyphLine extends THREE.Group {
+    private glyphs: Glyph[] = [];
+
+    constructor(size: number) {
+      super();
+
+      for (let index = 0; index < size; index++) {
+        const text = new Glyph();
+        text.updateColor(index, size);
+        text.position.y = -appCongig.glyphSize * index;
+
+        this.glyphs.push(text);
+      }
+
+      this.add(...this.glyphs);
+    }
+
+    public move() {
+      const first = this.glyphs[0];
+      const last = this.glyphs[this.glyphs.length - 1];
+      first.position.y = (last.position.y - appCongig.glyphSize) % 100;
+
+      first.updateGlyph();
+      this.glyphs.push(this.glyphs.shift()!);
+
+      this.glyphs.forEach((glyph, index) => {
+        glyph.updateColor(index, this.glyphs.length);
+      });
+    }
+  }
 
   createRain();
 
@@ -93,53 +173,16 @@ import Canvas from '../layouts/Canvas.astro';
   function createRain() {
     const count = 20;
     for (let index = 0; index < count; index++) {
-      const line = createLine();
+      const line = new GlyphLine(THREE.MathUtils.randInt(8, 16));
       line.position.x = (index - count / 2) * appCongig.glyphSize;
-      line.position.y = 10;
+      line.position.y = THREE.MathUtils.randInt(50, 100);
       scene.add(line);
+
+      setInterval(
+        () => line.move(),
+        THREE.MathUtils.randInt(appCongig.rainSpeed, appCongig.rainSpeed * 1.5),
+      );
     }
-  }
-
-  function createText(text: string, color: number, opacity: number) {
-    const shapes = matrixFont.generateShapes(text, 1);
-    const geometry = new THREE.ShapeGeometry(shapes);
-    geometry.computeBoundingBox();
-    const material = new THREE.LineBasicMaterial({
-      color,
-      opacity,
-      transparent: opacity !== 1,
-    });
-    const textMesh = new THREE.Mesh(geometry, material);
-
-    return textMesh;
-  }
-
-  function createLine() {
-    const line = new THREE.Group();
-    const string = getRandomGlyphs(10);
-
-    for (let index = 0; index < string.length; index++) {
-      const char = string[index];
-      const color = getTextColor(index, string.length);
-      const opacity = getTextOpacity(index, string.length);
-      const text = createText(char, color, opacity);
-      text.position.y = -appCongig.glyphSize * index;
-
-      line.add(text);
-    }
-
-    return line;
-  }
-
-  function getTextColor(index: number, total: number) {
-    if (index === total - 1) {
-      return 0xf0ff00;
-    }
-    return 0x00ff00;
-  }
-
-  function getTextOpacity(index: number, total: number) {
-    return Math.min(1, index / (total / 2));
   }
 
   function extractGlyphs() {
@@ -147,11 +190,6 @@ import Canvas from '../layouts/Canvas.astro';
     const glyphs = Object.keys(data.glyphs);
     glyphs.splice(9, 4); // remove broken/empty symbols
     return glyphs;
-  }
-
-  function getRandomGlyphs(length: number) {
-    const start = THREE.MathUtils.randInt(0, glyphs.length - length);
-    return glyphs.slice(start, start + length);
   }
 
   function getPixelRatio() {
