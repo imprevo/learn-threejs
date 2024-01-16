@@ -16,7 +16,7 @@ import Canvas from '../layouts/Canvas.astro';
     width: container.clientWidth,
     height: container.clientHeight,
     glyphSize: 2,
-    rainSpeed: 300,
+    rainSpeed: 50,
   };
 
   const clock = new THREE.Clock();
@@ -46,7 +46,7 @@ import Canvas from '../layouts/Canvas.astro';
       this.add(this.mesh);
     }
 
-    public updateGlyph() {
+    public changeGlyph() {
       this.mesh.geometry.dispose();
       this.mesh.geometry = this.createShape();
     }
@@ -69,28 +69,25 @@ import Canvas from '../layouts/Canvas.astro';
 
     private getTextColor(index: number, total: number) {
       if (index === total - 1) {
-        return new THREE.Color(0xf0ff00);
+        return new THREE.Color(0xffffff);
       }
       return new THREE.Color(0x00ff00);
     }
 
     private getTextOpacity(index: number, total: number) {
-      return Math.min(1, index / (total / 2));
+      return Math.min(1, index / total);
     }
   }
 
   class GlyphLine extends THREE.Group {
+    private offset = 40;
     private glyphs: Glyph[] = [];
 
     constructor(size: number) {
       super();
 
       for (let index = 0; index < size; index++) {
-        const text = new Glyph();
-        text.updateColor(index, size);
-        text.position.y = -appCongig.glyphSize * index;
-
-        this.glyphs.push(text);
+        this.glyphs.push(this.createGlyph(index, size));
       }
 
       this.add(...this.glyphs);
@@ -99,14 +96,24 @@ import Canvas from '../layouts/Canvas.astro';
     public move() {
       const first = this.glyphs[0];
       const last = this.glyphs[this.glyphs.length - 1];
-      first.position.y = (last.position.y - appCongig.glyphSize) % 100;
+      first.position.y =
+        first.position.y < -this.offset
+          ? this.offset + THREE.MathUtils.randInt(0, 20)
+          : last.position.y - appCongig.glyphSize;
 
-      first.updateGlyph();
+      first.changeGlyph();
       this.glyphs.push(this.glyphs.shift()!);
 
       this.glyphs.forEach((glyph, index) => {
         glyph.updateColor(index, this.glyphs.length);
       });
+    }
+
+    private createGlyph(index: number, size: number) {
+      const glyph = new Glyph();
+      glyph.updateColor(index, size);
+      glyph.position.y = this.offset + appCongig.glyphSize * (size - index);
+      return glyph;
     }
   }
 
@@ -171,18 +178,20 @@ import Canvas from '../layouts/Canvas.astro';
   }
 
   function createRain() {
-    const count = 20;
-    for (let index = 0; index < count; index++) {
-      const line = new GlyphLine(THREE.MathUtils.randInt(8, 16));
-      line.position.x = (index - count / 2) * appCongig.glyphSize;
-      line.position.y = THREE.MathUtils.randInt(50, 100);
-      scene.add(line);
+    const GLIPH_SIZE_IN_PIXELS = 36;
+    const count = Math.round(appCongig.width / GLIPH_SIZE_IN_PIXELS);
+    const lines: GlyphLine[] = [];
 
-      setInterval(
-        () => line.move(),
-        THREE.MathUtils.randInt(appCongig.rainSpeed, appCongig.rainSpeed * 1.5),
-      );
+    for (let index = 0; index < count; index++) {
+      const line = new GlyphLine(THREE.MathUtils.randInt(20, 30));
+      line.position.x = (index - count / 2) * appCongig.glyphSize;
+      scene.add(line);
+      lines.push(line);
     }
+
+    setInterval(() => {
+      lines.forEach((line) => line.move());
+    }, appCongig.rainSpeed);
   }
 
   function extractGlyphs() {
