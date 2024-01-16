@@ -17,6 +17,7 @@ import Canvas from '../layouts/Canvas.astro';
     height: container.clientHeight,
     glyphSize: 2,
     rainSpeed: 50,
+    glyphChangeThreshold: 0.02,
   };
 
   const clock = new THREE.Clock();
@@ -101,10 +102,12 @@ import Canvas from '../layouts/Canvas.astro';
           ? this.offset + THREE.MathUtils.randInt(0, 20)
           : last.position.y - appCongig.glyphSize;
 
-      first.changeGlyph();
       this.glyphs.push(this.glyphs.shift()!);
 
       this.glyphs.forEach((glyph, index) => {
+        if (this.shouldChangeGlyph()) {
+          glyph.changeGlyph();
+        }
         glyph.updateColor(index, this.glyphs.length);
       });
     }
@@ -114,6 +117,10 @@ import Canvas from '../layouts/Canvas.astro';
       glyph.updateColor(index, size);
       glyph.position.y = this.offset + appCongig.glyphSize * (size - index);
       return glyph;
+    }
+
+    private shouldChangeGlyph() {
+      return Math.random() < appCongig.glyphChangeThreshold;
     }
   }
 
