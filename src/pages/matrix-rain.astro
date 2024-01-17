@@ -14,6 +14,7 @@ import Canvas from '../layouts/Canvas.astro';
 
   const container = document.getElementById('container')!;
 
+  const GLIPH_SIZE_IN_PIXELS = 30;
   const appCongig = {
     width: container.clientWidth,
     height: container.clientHeight,
@@ -27,7 +28,6 @@ import Canvas from '../layouts/Canvas.astro';
     },
   };
 
-  const clock = new THREE.Clock();
   const fontLoader = new FontLoader();
 
   const matrixFont = await fontLoader.loadAsync(
@@ -126,7 +126,51 @@ import Canvas from '../layouts/Canvas.astro';
     }
   }
 
-  createRain();
+  class MatrixRain extends THREE.Group {
+    private lines: GlyphLine[] = [];
+    private count = 0;
+
+    constructor() {
+      super();
+      this.count = Math.round(appCongig.width / GLIPH_SIZE_IN_PIXELS);
+      this.createLines();
+    }
+
+    public move() {
+      this.lines.forEach((line) => line.move());
+    }
+
+    public resize() {
+      const count = this.getLineCount();
+      if (this.count !== count) {
+        this.count = count;
+        this.remove(...this.lines);
+        this.createLines();
+      }
+    }
+
+    private createLines() {
+      const lines: GlyphLine[] = [];
+
+      for (let index = 0; index < this.count; index++) {
+        const line = new GlyphLine(THREE.MathUtils.randInt(20, 30));
+        line.position.x = (index - this.count / 2) * appCongig.glyphSize;
+        lines.push(line);
+        this.add(line);
+      }
+
+      this.lines = lines;
+    }
+
+    private getLineCount() {
+      return Math.round(appCongig.width / GLIPH_SIZE_IN_PIXELS);
+    }
+  }
+
+  const rain = new MatrixRain();
+  scene.add(rain);
+
+  animate();
 
   window.addEventListener('resize', () => {
     appCongig.width = container.clientWidth;
@@ -138,13 +182,16 @@ import Canvas from '../layouts/Canvas.astro';
 
     effectComposer.setSize(appCongig.width, appCongig.height);
     effectComposer.setPixelRatio(getPixelRatio());
+
+    rain.resize();
   });
 
-  renderer.setAnimationLoop(() => {
-    const delta = clock.getDelta();
-
+  function animate() {
+    rain.move();
     effectComposer.render();
-  });
+
+    setTimeout(() => requestAnimationFrame(animate), appCongig.rainSpeed);
+  }
 
   function createRenderer() {
     const renderer = new THREE.WebGLRenderer({
@@ -193,23 +240,6 @@ import Canvas from '../layouts/Canvas.astro';
     composer.addPass(outputPass);
 
     return composer;
-  }
-
-  function createRain() {
-    const GLIPH_SIZE_IN_PIXELS = 30;
-    const count = Math.round(appCongig.width / GLIPH_SIZE_IN_PIXELS);
-    const lines: GlyphLine[] = [];
-
-    for (let index = 0; index < count; index++) {
-      const line = new GlyphLine(THREE.MathUtils.randInt(20, 30));
-      line.position.x = (index - count / 2) * appCongig.glyphSize;
-      scene.add(line);
-      lines.push(line);
-    }
-
-    setInterval(() => {
-      lines.forEach((line) => line.move());
-    }, appCongig.rainSpeed);
   }
 
   function extractGlyphs() {
