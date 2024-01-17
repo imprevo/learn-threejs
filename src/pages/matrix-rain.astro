@@ -27,6 +27,7 @@ import Canvas from '../layouts/Canvas.astro';
     '/fonts/Matrix-Code.facetype.json',
   );
   const glyphs = extractGlyphs();
+  const glyphsGeometry = createGlyphsGeometry();
   const renderer = createRenderer();
   const scene = createScene();
   const camera = createCamera();
@@ -42,14 +43,14 @@ import Canvas from '../layouts/Canvas.astro';
     constructor() {
       super();
 
-      this.mesh = new THREE.Mesh(this.createShape(), this.material);
+      this.mesh = new THREE.Mesh(this.getRandomGlyph(), this.material);
 
       this.add(this.mesh);
     }
 
     public changeGlyph() {
       this.mesh.geometry.dispose();
-      this.mesh.geometry = this.createShape();
+      this.mesh.geometry = this.getRandomGlyph();
     }
 
     public updateColor(index: number, total: number) {
@@ -59,13 +60,7 @@ import Canvas from '../layouts/Canvas.astro';
 
     private getRandomGlyph() {
       const index = THREE.MathUtils.randInt(0, glyphs.length - 1);
-      return glyphs[index];
-    }
-
-    private createShape() {
-      const text = this.getRandomGlyph();
-      const shapes = matrixFont.generateShapes(text, 1);
-      return new THREE.ShapeGeometry(shapes);
+      return glyphsGeometry[index];
     }
 
     private getTextColor(index: number, total: number) {
@@ -206,6 +201,13 @@ import Canvas from '../layouts/Canvas.astro';
     const glyphs = Object.keys(data.glyphs);
     glyphs.splice(9, 4); // remove broken/empty symbols
     return glyphs;
+  }
+
+  function createGlyphsGeometry() {
+    return glyphs.map((glyph) => {
+      const shapes = matrixFont.generateShapes(glyph, 1);
+      return new THREE.ShapeGeometry(shapes);
+    });
   }
 
   function getPixelRatio() {
