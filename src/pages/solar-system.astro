@@ -148,6 +148,8 @@ import Canvas from '../layouts/Canvas.astro';
     const controls = new TrackballControls(camera, renderer.domElement);
     controls.rotateSpeed = 1;
     controls.zoomSpeed = 1;
+    controls.minDistance = 80;
+    controls.maxDistance = 400;
     controls.panSpeed = 1;
     return controls;
   }
