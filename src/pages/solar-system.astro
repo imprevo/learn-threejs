@@ -15,11 +15,16 @@ import Canvas from '../layouts/Canvas.astro';
     height: container.clientHeight,
   };
 
-  interface Planet {
+  interface PlanetConfig {
     name: string;
     diameter: number;
     distance: number;
+    period: number;
     texture: string;
+  }
+
+  interface Updatable {
+    tick(delta: number): void;
   }
 
   const PLANETS = {
@@ -27,58 +32,128 @@ import Canvas from '../layouts/Canvas.astro';
       name: 'Sun',
       diameter: 80,
       distance: 0,
+      period: 0,
       texture: 'public/textures/planetpixelemporium/sunmap.jpg',
     },
     Mercury: {
       name: 'Mercury',
       diameter: 0.4 * 4,
       distance: 70,
+      period: 88,
       texture: 'public/textures/planetpixelemporium/mercurymap.jpg',
     },
     Venus: {
       name: 'Venus',
       diameter: 0.9 * 4,
       distance: 80,
+      period: 224,
       texture: 'public/textures/planetpixelemporium/venusmap.jpg',
     },
     Earth: {
       name: 'Earth',
       diameter: 1 * 4,
       distance: 90,
+      period: 365,
       texture: '/textures/planetpixelemporium/earthmap1k.jpg',
     },
     Mars: {
       name: 'Mars',
       diameter: 0.5 * 4,
       distance: 100,
+      period: 686,
       texture: 'public/textures/planetpixelemporium/mars_1k_color.jpg',
     },
     Jupiter: {
       name: 'Jupiter',
       diameter: 11.2,
       distance: 120,
+      period: 4332,
       texture: 'public/textures/planetpixelemporium/jupitermap.jpg',
     },
     Saturn: {
       name: 'Saturn',
       diameter: 9.5,
       distance: 140,
+      period: 10755,
       texture: 'public/textures/planetpixelemporium/saturnmap.jpg',
     },
     Uranus: {
       name: 'Uranus',
       diameter: 4,
       distance: 155,
+      period: 30687,
       texture: 'public/textures/planetpixelemporium/uranusmap.jpg',
     },
     Neptune: {
       name: 'Neptune',
       diameter: 3.9,
       distance: 165,
+      period: 60190,
       texture: 'public/textures/planetpixelemporium/neptunemap.jpg',
     },
   };
 
+  class System extends THREE.Group implements Updatable {
+    private point = Math.random();
+    private orbitpath: THREE.EllipseCurve;
+    private planet: THREE.Mesh;
+    private speed = 20;
+
+    constructor(private config: PlanetConfig) {
+      super();
+
+      this.orbitpath = createOrbitPath(config.distance);
+
+      const orbit = createOrbit(this.orbitpath);
+      orbit.rotateX(-Math.PI / 2);
+      this.add(orbit);
+
+      this.planet = createPlanet(config);
+      this.planet.position.x = config.distance;
+      this.add(this.planet);
+    }
+
+    public tick(delta: number) {
+      this.calculateNextPosition(delta * this.speed);
+      this.updatePlanetPosition();
+    }
+
+    private calculateNextPosition(delta: number) {
+      const diff = delta / this.config.period;
+      this.point = (this.point + diff) % 1;
+    }
+
+    private updatePlanetPosition() {
+      const target = this.orbitpath.getPoint(this.point);
+      this.planet.position.x = target.x;
+      this.planet.position.z = target.y;
+    }
+  }
+
+  class SolarSystem extends THREE.Group implements Updatable {
+    private sun = createSun();
+    private systems = [
+      createMercurySystem(),
+      createVenusSystem(),
+      createEarthSystem(),
+      createMarsSystem(),
+      createJupiterSystem(),
+      createSaturnSystem(),
+      createUranusSystem(),
+      createNeptuneSystem(),
+    ];
+
+    constructor() {
+      super();
+      this.add(this.sun, ...this.systems);
+    }
+
+    public tick(delta: number) {
+      this.systems.forEach((system) => system.tick(delta));
+    }
+  }
+
+  const clock = new THREE.Clock();
   const textureLoader = new THREE.TextureLoader();
 
   const renderer = createRenderer();
@@ -88,17 +163,13 @@ import Canvas from '../layouts/Canvas.astro';
 
   scene.add(createAmbientLight());
 
-  scene.add(createSun());
-  scene.add(createMercurySystem());
-  scene.add(createVenusSystem());
-  scene.add(createEarthSystem());
-  scene.add(createMarsSystem());
-  scene.add(createJupiterSystem());
-  scene.add(createSaturnSystem());
-  scene.add(createUranusSystem());
-  scene.add(createNeptuneSystem());
+  const solarSystem = new SolarSystem();
+
+  scene.add(solarSystem);
 
   renderer.setAnimationLoop(() => {
+    const delta = clock.getDelta();
+    solarSystem.tick(delta);
     controls.update();
     renderer.render(scene, camera);
   });
@@ -159,25 +230,21 @@ import Canvas from '../layouts/Canvas.astro';
     return ambientLight;
   }
 
-  function createPlanet(radius: number, texture: string) {
-    const terrainTexture = textureLoader.load(texture);
-    const geometry = new THREE.SphereGeometry(radius);
+  function createPlanet(config: PlanetConfig) {
+    const terrainTexture = textureLoader.load(config.texture);
+    const geometry = new THREE.SphereGeometry(config.diameter / 2);
     const material = new THREE.MeshStandardMaterial({ map: terrainTexture });
     const planet = new THREE.Mesh(geometry, material);
     return planet;
   }
 
-  function createOrbit(radius: number) {
-    const curve = new THREE.EllipseCurve(
-      0,
-      0,
-      radius,
-      radius * 0.8,
-      0,
-      Math.PI * 2,
-    );
+  function createOrbitPath(radius: number) {
+    return new THREE.EllipseCurve(0, 0, radius, radius * 0.8, 0, Math.PI * 2);
+  }
+
+  function createOrbit(orbitpath: THREE.EllipseCurve) {
     const geometry = new THREE.BufferGeometry().setFromPoints(
-      curve.getSpacedPoints(100),
+      orbitpath.getSpacedPoints(100),
     );
     const material = new THREE.LineBasicMaterial({
       color: 0xffffff,
@@ -188,59 +255,48 @@ import Canvas from '../layouts/Canvas.astro';
     return axis;
   }
 
-  function createSystem(config: Planet) {
-    const system = new THREE.Group();
-    const planet = createPlanet(config.diameter / 2, config.texture);
-    planet.position.x = config.distance;
-    const orbit = createOrbit(config.distance);
-    orbit.rotateX(-Math.PI / 2);
-    system.add(orbit);
-    system.add(planet);
-    return system;
-  }
-
   function createSun() {
-    const system = createSystem(PLANETS.Sun);
-    return system;
+    const planet = createPlanet(PLANETS.Sun);
+    return planet;
   }
 
   function createMercurySystem() {
-    const system = createSystem(PLANETS.Mercury);
+    const system = new System(PLANETS.Mercury);
     return system;
   }
 
   function createVenusSystem() {
-    const system = createSystem(PLANETS.Venus);
+    const system = new System(PLANETS.Venus);
     return system;
   }
 
   function createEarthSystem() {
-    const system = createSystem(PLANETS.Earth);
+    const system = new System(PLANETS.Earth);
     return system;
   }
 
   function createMarsSystem() {
-    const system = createSystem(PLANETS.Mars);
+    const system = new System(PLANETS.Mars);
     return system;
   }
 
   function createJupiterSystem() {
-    const system = createSystem(PLANETS.Jupiter);
+    const system = new System(PLANETS.Jupiter);
     return system;
   }
 
   function createSaturnSystem() {
-    const system = createSystem(PLANETS.Saturn);
+    const system = new System(PLANETS.Saturn);
     return system;
   }
 
   function createUranusSystem() {
-    const system = createSystem(PLANETS.Uranus);
+    const system = new System(PLANETS.Uranus);
     return system;
   }
 
   function createNeptuneSystem() {
-    const system = createSystem(PLANETS.Neptune);
+    const system = new System(PLANETS.Neptune);
     return system;
   }
 </script>
