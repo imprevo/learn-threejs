@@ -1,0 +1,244 @@
+---
+import Canvas from '../layouts/Canvas.astro';
+---
+
+<Canvas title="Basic Cube" />
+
+<script>
+  import * as THREE from 'three';
+  import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls';
+
+  const container = document.getElementById('container')!;
+
+  const appCongig = {
+    width: container.clientWidth,
+    height: container.clientHeight,
+  };
+
+  interface Planet {
+    name: string;
+    diameter: number;
+    distance: number;
+    texture: string;
+  }
+
+  const PLANETS = {
+    Sun: {
+      name: 'Sun',
+      diameter: 80,
+      distance: 0,
+      texture: 'public/textures/planetpixelemporium/sunmap.jpg',
+    },
+    Mercury: {
+      name: 'Mercury',
+      diameter: 0.4 * 4,
+      distance: 70,
+      texture: 'public/textures/planetpixelemporium/mercurymap.jpg',
+    },
+    Venus: {
+      name: 'Venus',
+      diameter: 0.9 * 4,
+      distance: 80,
+      texture: 'public/textures/planetpixelemporium/venusmap.jpg',
+    },
+    Earth: {
+      name: 'Earth',
+      diameter: 1 * 4,
+      distance: 90,
+      texture: '/textures/planetpixelemporium/earthmap1k.jpg',
+    },
+    Mars: {
+      name: 'Mars',
+      diameter: 0.5 * 4,
+      distance: 100,
+      texture: 'public/textures/planetpixelemporium/mars_1k_color.jpg',
+    },
+    Jupiter: {
+      name: 'Jupiter',
+      diameter: 11.2,
+      distance: 120,
+      texture: 'public/textures/planetpixelemporium/jupitermap.jpg',
+    },
+    Saturn: {
+      name: 'Saturn',
+      diameter: 9.5,
+      distance: 140,
+      texture: 'public/textures/planetpixelemporium/saturnmap.jpg',
+    },
+    Uranus: {
+      name: 'Uranus',
+      diameter: 4,
+      distance: 155,
+      texture: 'public/textures/planetpixelemporium/uranusmap.jpg',
+    },
+    Neptune: {
+      name: 'Neptune',
+      diameter: 3.9,
+      distance: 165,
+      texture: 'public/textures/planetpixelemporium/neptunemap.jpg',
+    },
+  };
+
+  const textureLoader = new THREE.TextureLoader();
+
+  const renderer = createRenderer();
+  const scene = createScene();
+  const camera = createCamera();
+  const controls = createControls();
+
+  scene.add(createAmbientLight());
+
+  scene.add(createSun());
+  scene.add(createMercurySystem());
+  scene.add(createVenusSystem());
+  scene.add(createEarthSystem());
+  scene.add(createMarsSystem());
+  scene.add(createJupiterSystem());
+  scene.add(createSaturnSystem());
+  scene.add(createUranusSystem());
+  scene.add(createNeptuneSystem());
+
+  renderer.setAnimationLoop(() => {
+    controls.update();
+    renderer.render(scene, camera);
+  });
+
+  window.addEventListener('resize', () => {
+    appCongig.width = container.clientWidth;
+    appCongig.height = container.clientHeight;
+
+    camera.aspect = appCongig.width / appCongig.height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(appCongig.width, appCongig.height);
+  });
+
+  function createRenderer() {
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      canvas: container.querySelector('canvas')!,
+    });
+    renderer.setSize(appCongig.width, appCongig.height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    return renderer;
+  }
+
+  function createScene() {
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111111);
+    return scene;
+  }
+
+  function createCamera() {
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      container.clientWidth / container.clientHeight,
+      0.1,
+      1000,
+    );
+    camera.position.z = 150;
+    camera.position.x = 150;
+    camera.position.y = 150;
+    return camera;
+  }
+
+  function createControls() {
+    const controls = new TrackballControls(camera, renderer.domElement);
+    controls.rotateSpeed = 1;
+    controls.zoomSpeed = 1;
+    controls.panSpeed = 1;
+    return controls;
+  }
+
+  function createAmbientLight() {
+    const ambientLight = new THREE.AmbientLight(THREE.Color.NAMES.white, 1);
+    return ambientLight;
+  }
+
+  function createPlanet(radius: number, texture: string) {
+    const terrainTexture = textureLoader.load(texture);
+    const geometry = new THREE.SphereGeometry(radius);
+    const material = new THREE.MeshStandardMaterial({ map: terrainTexture });
+    const planet = new THREE.Mesh(geometry, material);
+    return planet;
+  }
+
+  function createOrbit(radius: number) {
+    const curve = new THREE.EllipseCurve(
+      0,
+      0,
+      radius,
+      radius * 0.8,
+      0,
+      Math.PI * 2,
+    );
+    const geometry = new THREE.BufferGeometry().setFromPoints(
+      curve.getSpacedPoints(100),
+    );
+    const material = new THREE.LineBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.5,
+    });
+    const axis = new THREE.Line(geometry, material);
+    return axis;
+  }
+
+  function createSystem(config: Planet) {
+    const system = new THREE.Group();
+    const planet = createPlanet(config.diameter / 2, config.texture);
+    planet.position.x = config.distance;
+    const orbit = createOrbit(config.distance);
+    orbit.rotateX(-Math.PI / 2);
+    system.add(orbit);
+    system.add(planet);
+    return system;
+  }
+
+  function createSun() {
+    const system = createSystem(PLANETS.Sun);
+    return system;
+  }
+
+  function createMercurySystem() {
+    const system = createSystem(PLANETS.Mercury);
+    return system;
+  }
+
+  function createVenusSystem() {
+    const system = createSystem(PLANETS.Venus);
+    return system;
+  }
+
+  function createEarthSystem() {
+    const system = createSystem(PLANETS.Earth);
+    return system;
+  }
+
+  function createMarsSystem() {
+    const system = createSystem(PLANETS.Mars);
+    return system;
+  }
+
+  function createJupiterSystem() {
+    const system = createSystem(PLANETS.Jupiter);
+    return system;
+  }
+
+  function createSaturnSystem() {
+    const system = createSystem(PLANETS.Saturn);
+    return system;
+  }
+
+  function createUranusSystem() {
+    const system = createSystem(PLANETS.Uranus);
+    return system;
+  }
+
+  function createNeptuneSystem() {
+    const system = createSystem(PLANETS.Neptune);
+    return system;
+  }
+</script>
