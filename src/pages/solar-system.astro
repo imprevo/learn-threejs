@@ -2,7 +2,7 @@
 import Canvas from '../layouts/Canvas.astro';
 ---
 
-<Canvas title="Basic Cube" />
+<Canvas title="Solar system" />
 
 <script>
   import * as THREE from 'three';
@@ -13,6 +13,7 @@ import Canvas from '../layouts/Canvas.astro';
   const appCongig = {
     width: container.clientWidth,
     height: container.clientHeight,
+    speed: 1, // 1 equal to 24 hours
   };
 
   interface PlanetConfig {
@@ -20,6 +21,8 @@ import Canvas from '../layouts/Canvas.astro';
     diameter: number;
     distance: number;
     period: number;
+    daylength: number;
+    tilt: number;
     texture: string;
   }
 
@@ -27,12 +30,16 @@ import Canvas from '../layouts/Canvas.astro';
     tick(delta: number): void;
   }
 
+  const PI_2 = Math.PI * 2;
+  const HOURS_IN_DAY = 24;
   const PLANETS = {
     Sun: {
       name: 'Sun',
       diameter: 80,
       distance: 0,
       period: 0,
+      daylength: 600,
+      tilt: 0,
       texture: 'public/textures/planetpixelemporium/sunmap.jpg',
     },
     Mercury: {
@@ -40,6 +47,8 @@ import Canvas from '../layouts/Canvas.astro';
       diameter: 0.4 * 4,
       distance: 70,
       period: 88,
+      daylength: 4222.6,
+      tilt: 0.03,
       texture: 'public/textures/planetpixelemporium/mercurymap.jpg',
     },
     Venus: {
@@ -47,6 +56,8 @@ import Canvas from '../layouts/Canvas.astro';
       diameter: 0.9 * 4,
       distance: 80,
       period: 224,
+      daylength: 2802,
+      tilt: 2.64,
       texture: 'public/textures/planetpixelemporium/venusmap.jpg',
     },
     Earth: {
@@ -54,6 +65,8 @@ import Canvas from '../layouts/Canvas.astro';
       diameter: 1 * 4,
       distance: 90,
       period: 365,
+      daylength: 24,
+      tilt: 23.44,
       texture: '/textures/planetpixelemporium/earthmap1k.jpg',
     },
     Mars: {
@@ -61,6 +74,8 @@ import Canvas from '../layouts/Canvas.astro';
       diameter: 0.5 * 4,
       distance: 100,
       period: 686,
+      daylength: 24.7,
+      tilt: 25.19,
       texture: 'public/textures/planetpixelemporium/mars_1k_color.jpg',
     },
     Jupiter: {
@@ -68,6 +83,8 @@ import Canvas from '../layouts/Canvas.astro';
       diameter: 11.2,
       distance: 120,
       period: 4332,
+      daylength: 9.9,
+      tilt: 3.13,
       texture: 'public/textures/planetpixelemporium/jupitermap.jpg',
     },
     Saturn: {
@@ -75,6 +92,8 @@ import Canvas from '../layouts/Canvas.astro';
       diameter: 9.5,
       distance: 140,
       period: 10755,
+      daylength: 10.7,
+      tilt: 26.73,
       texture: 'public/textures/planetpixelemporium/saturnmap.jpg',
     },
     Uranus: {
@@ -82,6 +101,8 @@ import Canvas from '../layouts/Canvas.astro';
       diameter: 4,
       distance: 155,
       period: 30687,
+      daylength: 17.2,
+      tilt: 82.23,
       texture: 'public/textures/planetpixelemporium/uranusmap.jpg',
     },
     Neptune: {
@@ -89,18 +110,45 @@ import Canvas from '../layouts/Canvas.astro';
       diameter: 3.9,
       distance: 165,
       period: 60190,
+      daylength: 16.1,
+      tilt: 28.32,
       texture: 'public/textures/planetpixelemporium/neptunemap.jpg',
     },
   };
 
+  class Planet extends THREE.Group implements Updatable {
+    private rotationSpeed: number;
+
+    constructor(config: PlanetConfig) {
+      super();
+
+      this.rotationSpeed = (PI_2 / config.daylength) * HOURS_IN_DAY;
+
+      const terrainTexture = textureLoader.load(config.texture);
+      const geometry = new THREE.SphereGeometry(config.diameter / 2);
+      const material = new THREE.MeshStandardMaterial({ map: terrainTexture });
+      const mesh = new THREE.Mesh(geometry, material);
+      this.rotation.x = config.tilt;
+      this.rotation.x = THREE.MathUtils.DEG2RAD * config.tilt;
+      this.add(mesh);
+    }
+
+    public tick(delta: number) {
+      const diff = delta * this.rotationSpeed * appCongig.speed;
+      this.rotation.y += diff;
+    }
+  }
+
   class System extends THREE.Group implements Updatable {
     private point = Math.random();
     private orbitpath: THREE.EllipseCurve;
-    private planet: THREE.Mesh;
-    private speed = 20;
+    private planet: Planet;
+    private moveSpeed: number;
 
-    constructor(private config: PlanetConfig) {
+    constructor(config: PlanetConfig) {
       super();
+
+      this.moveSpeed = 1 / config.period;
 
       this.orbitpath = createOrbitPath(config.distance);
 
@@ -108,18 +156,19 @@ import Canvas from '../layouts/Canvas.astro';
       orbit.rotateX(-Math.PI / 2);
       this.add(orbit);
 
-      this.planet = createPlanet(config);
+      this.planet = new Planet(config);
       this.planet.position.x = config.distance;
       this.add(this.planet);
     }
 
     public tick(delta: number) {
-      this.calculateNextPosition(delta * this.speed);
+      this.planet.tick(delta);
+      this.calculateNextPosition(delta);
       this.updatePlanetPosition();
     }
 
     private calculateNextPosition(delta: number) {
-      const diff = delta / this.config.period;
+      const diff = delta * this.moveSpeed * appCongig.speed;
       this.point = (this.point + diff) % 1;
     }
 
@@ -149,6 +198,7 @@ import Canvas from '../layouts/Canvas.astro';
     }
 
     public tick(delta: number) {
+      this.sun.tick(delta);
       this.systems.forEach((system) => system.tick(delta));
     }
   }
@@ -217,7 +267,7 @@ import Canvas from '../layouts/Canvas.astro';
 
   function createControls() {
     const controls = new TrackballControls(camera, renderer.domElement);
-    controls.rotateSpeed = 1;
+    controls.rotateSpeed = 5;
     controls.zoomSpeed = 1;
     controls.minDistance = 80;
     controls.maxDistance = 400;
@@ -230,16 +280,8 @@ import Canvas from '../layouts/Canvas.astro';
     return ambientLight;
   }
 
-  function createPlanet(config: PlanetConfig) {
-    const terrainTexture = textureLoader.load(config.texture);
-    const geometry = new THREE.SphereGeometry(config.diameter / 2);
-    const material = new THREE.MeshStandardMaterial({ map: terrainTexture });
-    const planet = new THREE.Mesh(geometry, material);
-    return planet;
-  }
-
   function createOrbitPath(radius: number) {
-    return new THREE.EllipseCurve(0, 0, radius, radius * 0.8, 0, Math.PI * 2);
+    return new THREE.EllipseCurve(0, 0, radius, radius * 0.8, 0, PI_2);
   }
 
   function createOrbit(orbitpath: THREE.EllipseCurve) {
@@ -256,7 +298,7 @@ import Canvas from '../layouts/Canvas.astro';
   }
 
   function createSun() {
-    const planet = createPlanet(PLANETS.Sun);
+    const planet = new Planet(PLANETS.Sun);
     return planet;
   }
 
